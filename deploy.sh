@@ -1,12 +1,13 @@
 #!/bin/bash
 
-# DEFINE LOG FILE
+# CREATE TIMESTAMP AND DEFINE LOG FILE
+TIMESTAMP=$(date + "%Y%m%d_%H%M%S")
 logFile="deploy.log"
 : > $logFile
 
-# DEFINE A CUSTOM LOG AND PRINT FUNCTION
+# DEFINE A CUSTOM LOG AND PRINT FUNCTION WITH TIMESTAMP
 log() {
-    printf "%s\n\n" "$1" | tee -a $logFile
+    printf "%s %s\n\n" "$(date + %Y%m%d %H:%M:%S) => " "$1" | tee -a $logFile
 }
 
 # GET USER INPUT 
