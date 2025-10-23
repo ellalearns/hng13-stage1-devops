@@ -64,4 +64,84 @@ else
     exit
 fi
 
+# SSH connect
+ssh -i "$keyPath" -o BatchMode=yes -o ConnectTimeout=5 "$username@$ipAddress" "echo 'SSH OK'" >/dev/null 2>&1
+if [ $? -eq 0 ]; then
+    log "✅ SSH connection successful."
+else
+    log "SSH connection failed. Check credentials or key path."
+    exit 1
+fi
+
+# SETTING UP REMOTE HOST
+log "Updating system..."
+sudo apt update -y && sudo apt upgrade -y
+
+log "Installing Docker, Compose, and Nginx..."
+sudo apt install -y docker.io docker-compose nginx
+
+log "Adding user to docker group..."
+sudo usermod -aG docker \$USER
+
+log "Enabling and starting services..."
+sudo systemctl enable docker nginx
+sudo systemctl start docker nginx
+
+elog "Confirming versions..."
+docker --version
+docker-compose --version
+nginx -v
+EOF
+log "Remote environment is ready."
+
+# DEPLOY DOCKERIZED APPLICATION
+log "Deploying Docker app..."
+
+scp -i "$keyPath" -r "./$repoName" "$username@$ipAddress:~/"
+
+ssh -i "$keyPath" "$username@$ipAddress" bash <<EOF
+set -e
+cd ~/$repoName
+docker compose down || true
+docker compose up -d --build
+sleep 5
+docker ps
+EOF
+log "Containers built and running."
+
+# CONFIGURE NGINX REVERSE PROXY
+log "Configuring Nginx reverse proxy..."
+
+ssh -i "$keyPath" "$username@$ipAddress" bash <<EOF
+sudo bash -c 'cat > /etc/nginx/sites-available/app.conf <<CONF
+server {
+    listen 80;
+    server_name _;
+    location / {
+        proxy_pass http://localhost:$port;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+    }
+}
+CONF'
+sudo ln -sf /etc/nginx/sites-available/app.conf /etc/nginx/sites-enabled/app.conf
+sudo nginx -t && sudo systemctl reload nginx
+EOF
+log "Nginx reverse proxy configured."
+
+
+# VALIDATE DEPLOYMENT
+log "Validating deployment..."
+
+ssh -i "$keyPath" "$username@$ipAddress" bash <<EOF
+docker info >/dev/null && echo "Docker is running."
+docker ps | grep "$repoName" && echo "Container active."
+sudo systemctl status nginx --no-pager | grep active
+curl -I http://localhost:$port || echo "App not responding locally."
+EOF
+
+log "Deployment validation complete."
+
 read -p "press enter to exit... \n\n"

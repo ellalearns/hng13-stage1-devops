@@ -1,16 +1,20 @@
-gitRepo: https://github.com/e 
+gitRepo: https://github.com/e
 
-PAT: dre 
+PAT: dre
 
-branchName: dre 
+branchName: srew
 
-username: ser 
+username: are
 
-ipAddress: ser 
+ipAddress: aer
 
-keyPath: sre 
+keyPath: ae
 
-port: 9090 
+Invalid port, try again
 
-repoFolder:  
+port: 00
+
+repoFolder: 
+
+repo folder exists... pulling latest changes...
 
