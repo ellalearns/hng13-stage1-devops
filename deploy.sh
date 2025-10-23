@@ -4,57 +4,63 @@
 logFile="deploy.log"
 : > $logFile
 
+# DEFINE A CUSTOM LOG AND PRINT FUNCTION
+log() {
+    printf "%s\n\n" "$1" | tee -a $logFile
+}
+
 # GET USER INPUT 
 while true; do
     read -p "What's your Git repo? => " gitRepo
     [[ $gitRepo =~ ^https://github.com/[a-zA-Z0-9./_-]+$ ]] && break
-    printf "invalid gitRepo, try again\n\n"
+    log "invalid gitRepo, try again"
 done
-printf "gitRepo: $gitRepo \n\n" | tee -a $logFile
+log "gitRepo: $gitRepo"
 
 read -p "Enter your PAT => " pat
-printf "PAT: $pat \n\n" | tee -a $logFile
+log "PAT: $pat"
 
 read -p "Enter the branch name (optional, default is main) => " branchName
 branchName=${branchName:-main}
-printf "branchName: $branchName \n\n" | tee -a $logFile
+log "branchName: $branchName"
 
 read -p "Enter your remote server SSH username => " username
-printf "username: $username \n\n" | tee -a $logFile
+log "username: $username"
 
 read -p "Enter your remote server SSH IP address => " ipAddress
-printf "ipAddress: $ipAddress \n\n" | tee -a $logFile
+log "ipAddress: $ipAddress"
 
 read -p "Enter your remote server SSH key path => " keyPath
-printf "keyPath: $keyPath \n\n" | tee -a $logFile
+log "keyPath: $keyPath"
 
 while true; do
     read -p "Enter the application port => " port
     [[ $port =~ ^[0-9]+$ ]] && break
-    printf "Invalid port, try again \n\n"
+    log "Invalid port, try again"
 done
-printf "port: $port \n\n" | tee -a $logFile
+log "port: $port"
 
 # CLONE REPO, PULL REPO, SWITCH TO BRANCH
-$repoName = ${basename -s .git "$gitRepo"}
-printf "repoFolder: $repoName \n\n" | tee -a $logFile
+$repoName = $(basename -s .git "$gitRepo")
+log "repoFolder: $repoName"
 
 if [ -d $repoName ]; then
-    printf "repo folder exists... pulling latest changes... \n\n"
-    cd $repoName || exit
-    git pull
+    log "repo folder exists... pulling latest changes..."
+    cd $repoName || { log "failed to cd into repo folder"; exit 1; }
+    git pull || { log "git pull failed"; exit 1; }
 else
-    printf "cloning repo... \n\n"
-    git clone "https://$pat@${gitRepo#https://}"
-    cd $repoName || exit
+    log "cloning repo..."
+    git clone "https://$pat@${gitRepo#https://}" || { log "git clone failed"; exit 1; }
+    cd $repoName || { log "failed to cd into repo folder"; exit 1; }
 fi
 
-git checkout $branchName
+git checkout $branchName || { log "failed to checkout into specified branch name"; exit 1; }
 
+# CHECK FOR DOCKER FILE
 if [[ -f "dockerfile" || -f "docker-compose.yml" ]]; then
-    printf "Docker configuration file present \n\n" | tee -a $logFile
+    log "Docker configuration file present"
 else
-    printf "No docker configuration file was found. Add one and try again. \n\n" | tee -a $logFile
+    log "No docker configuration file was found. Add one and try again"
     exit
 fi
 
